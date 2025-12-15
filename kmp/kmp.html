@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KMP算法演示系统 - 动画版 (优化版)</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', 'Microsoft YaHei', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            color: #333;
+            line-height: 1.6;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #4a69bd 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+            border-bottom: 5px solid #3498db;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            font-weight: 300;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 320px 1fr 320px;
+            gap: 20px;
+            padding: 20px;
+        }
+
+        @media (max-width: 1200px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        .panel h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #3498db;
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #34495e;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 1rem;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 10px 20px;
+            background: linear-gradient(to right, #3498db, #2980b9);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            flex-grow: 1;
+        }
+
+        button:hover {
+            background: linear-gradient(to right, #2980b9, #1f639b);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .info-panel {
+            background: #e8f4fc;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            margin-top: 20px;
+            border-radius: 0 5px 5px 0;
+        }
+
+        .text-visualization {
+            font-family: 'Courier New', monospace;
+            font-size: 1.1rem;
+            line-height: 1.8;
+            margin-bottom: 10px;
+            padding: 15px;
+            background: white;
+            border-radius: 5px;
+            overflow-x: auto;
+            white-space: nowrap;
+        }
+
+        .char {
+            display: inline-block;
+            width: 35px;
+            height: 35px;
+            line-height: 35px;
+            text-align: center;
+            margin: 2px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            font-size: 1rem;
+            transition: all 0.3s;
+            border: 1px solid #ddd;
+        }
+        
+        /* Next 数组值样式 */
+        .next-char {
+            background: #f1f1f1;
+            color: #333;
+            border-color: #ccc;
+        }
+
+        .char.match {
+            background: #2ecc71;
+            color: white;
+            border-color: #27ae60;
+        }
+
+        .char.mismatch {
+            background: #e74c3c;
+            color: white;
+            border-color: #c0392b;
+        }
+
+        .char.pattern {
+            background: #3498db;
+            color: white;
+            border-color: #2980b9;
+        }
+
+        .char.current {
+            background: #f39c12;
+            color: white;
+            border-color: #e67e22;
+            animation: pulse 1s infinite;
+            box-shadow: 0 0 10px rgba(243, 156, 18, 0.5);
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 10px rgba(243, 156, 18, 0.5); }
+            50% { transform: scale(1.05); box-shadow: 0 0 15px rgba(243, 156, 18, 0.8); }
+            100% { transform: scale(1); box-shadow: 0 0 10px rgba(243, 156, 18, 0.5); }
+        }
+
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 15px;
+            background: #2c3e50;
+            color: white;
+            border-radius: 5px;
+            margin-top: 10px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .comparison-counter {
+            background: #e74c3c;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-weight: bold;
+        }
+
+        .step-counter {
+            background: #3498db;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-weight: bold;
+        }
+
+        .result-panel {
+            background: #2ecc71;
+            color: white;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 1.2rem;
+            display: none;
+        }
+
+        .result-panel.failure {
+            background: #e74c3c;
+        }
+
+        .algorithm-explanation {
+            background: #fff8e1;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #f39c12;
+            margin-top: 20px;
+            font-size: 0.95rem;
+        }
+
+        .index-label {
+            font-size: 0.8rem;
+            color: #7f8c8d;
+            text-align: center;
+            margin-top: 2px;
+            width: 35px; /* 匹配 .char 宽度 */
+            margin: 2px; /* 匹配 .char margin */
+            display: inline-block;
+        }
+
+        .text-row, .pattern-row {
+            margin-bottom: 10px;
+        }
+
+        .log-entry {
+            padding: 5px 0;
+            border-bottom: 1px solid #eee;
+            font-size: 0.85rem;
+        }
+
+        .pointer {
+            display: inline-block;
+            font-weight: bold;
+            color: #e74c3c;
+        }
+        
+        .speed-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .speed-control label {
+            margin: 0;
+            font-size: 0.9rem;
+        }
+        
+        .speed-control input {
+            flex-grow: 1;
+        }
+        
+        .warning-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>KMP算法演示系统 (优化版)</h1>
+            <p class="subtitle">离线单文件版 | 动态可视化 | Next数组固定展示</p>
+        </div>
+
+        <div class="main-content">
+            <div>
+                <div class="panel">
+                    <h3>算法控制</h3>
+                    <div class="warning-message" id="warning-message"></div>
+                    
+                    <div class="control-group">
+                        <label for="text-input">主串 (Text)</label>
+                        <input type="text" id="text-input" value="ABABDABACDABABCABAB">
+                    </div>
+                    
+                    <div class="control-group">
+                        <label for="pattern-input">模式串 (Pattern)</label>
+                        <input type="text" id="pattern-input" value="ABABCABAB">
+                    </div>
+                    
+                    <div class="button-group">
+                        <button id="brute-force-btn">暴力匹配</button>
+                        <button id="kmp-btn">KMP算法</button>
+                        <button id="step-btn" disabled>下一步</button>
+                        <button id="auto-step-btn" disabled>自动执行</button>
+                        <button id="reset-btn">重置</button>
+                    </div>
+                    
+                    <div class="info-panel">
+                        <p><strong>操作说明：</strong></p>
+                        <p>1. 输入主串和模式串</p>
+                        <p>2. 点击"暴力匹配"或"KMP算法"开始演示</p>
+                        <p>3. 绿色字符表示匹配成功，<span style="color:#f39c12;font-weight:bold;">黄色</span>字符表示正在比较</p>
+                    </div>
+                </div>
+                
+                <div class="panel">
+                    <h3>算法信息</h3>
+                    <div class="algorithm-explanation">
+                        <h4>KMP算法核心思想</h4>
+                        <p>KMP算法通过预先计算模式串的"部分匹配表"(next数组)，在匹配失败时跳过不必要的比较，将时间复杂度从O(n*m)降低到O(n+m)。</p>
+                        <p><strong>关键概念：</strong></p>
+                        <ul style="padding-left: 20px; margin-top: 5px;">
+                            <li><strong>最长公共前后缀</strong>：模式串前缀和后缀的最长匹配长度</li>
+                            <li><strong>Next数组</strong>：记录每个位置匹配失败时，模式串应该回溯的位置</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <div>
+                <div class="panel">
+                    <h3>匹配过程可视化</h3>
+                    <div class="status-bar">
+                        <div>状态: <span id="status">准备就绪</span></div>
+                        <div>比较次数: <span id="comparison-count" class="comparison-counter">0</span></div>
+                        <div>步骤: <span id="step-count" class="step-counter">0</span></div>
+                        <div>算法: <span id="algorithm-name">-</span></div>
+                    </div>
+                    
+                    <div class="visualization-container">
+                        <h4>主串 (Text)</h4>
+                        <div id="text-visual" class="text-visualization">
+                            <div class="text-row" id="text-chars"></div>
+                            <div class="text-row" id="text-indices"></div>
+                            <div class="text-row" id="text-pointer"></div>
+                        </div>
+                        
+                        <h4>模式串 (Pattern)</h4>
+                        <div id="pattern-visual" class="text-visualization">
+                            <div class="pattern-row" id="pattern-chars"></div>
+                            <div class="pattern-row" id="pattern-indices"></div>
+                            <div class="pattern-row" id="pattern-pointer"></div>
+                        </div>
+                    </div>
+                    
+                    <div id="result-panel" class="result-panel"></div>
+                </div>
+                
+                <div class="panel">
+                    <h3>算法步骤说明</h3>
+                    <div id="step-explanation" class="algorithm-explanation">
+                        <p>请点击"暴力匹配"或"KMP算法"按钮开始演示。系统会展示字符串匹配的完整过程。</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div>
+                <div class="panel">
+                    <h3>算法性能比较</h3>
+                    <div id="performance-info">
+                        <p><strong>暴力匹配 (Brute Force):</strong></p>
+                        <ul style="padding-left: 20px; margin-bottom: 15px;">
+                            <li>时间复杂度: O(n*m)</li>
+                            <li>主串指针需要回退</li>
+                        </ul>
+                        
+                        <p><strong>KMP算法:</strong></p>
+                        <ul style="padding-left: 20px;">
+                            <li>时间复杂度: O(n+m)</li>
+                            <li>主串指针不回退</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="info-panel" style="margin-top: 20px;">
+                        <p><strong>当前匹配信息：</strong></p>
+                        <p>主串长度: <span id="text-length">0</span></p>
+                        <p>模式串长度: <span id="pattern-length">0</span></p>
+                        <p>主串起始位置 (i): <span id="current-text-pos">-</span></p>
+                        <p>模式串指针 (j): <span id="current-pattern-pos">-</span></p>
+                        <p>匹配状态: <span id="match-status">未开始</span></p>
+                    </div>
+                </div>
+                
+                <div class="panel" id="next-array-panel" style="display:none;"> 
+                    <h3>Next 数组 (部分匹配表)</h3>
+                    <div id="next-visual" class="text-visualization" style="padding: 10px;">
+                        <div class="pattern-row" id="next-pattern-chars"></div>
+                        <div class="pattern-row" id="next-pattern-indices" style="margin-bottom: 5px;"></div>
+                        <div class="pattern-row" id="next-values"></div>
+                    </div>
+                    <div class="algorithm-explanation" style="margin-top: 10px;">
+                        <p>Next 值表示当前字符失配时，模式串应回溯到的下一个匹配位置，即最长公共前后缀的长度。</p>
+                    </div>
+                </div>
+                
+                <div class="panel">
+                    <h3>匹配日志</h3>
+                    <div id="log-container" style="height: 200px; overflow-y: auto; background: white; padding: 10px; border-radius: 5px; font-family: 'Courier New', monospace; font-size: 0.9rem;">
+                        <div id="log-entries">点击上方按钮开始演示，日志将在此显示...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 创建KMP算法类
+        class KMPAlgorithm {
+            constructor() {
+                this.reset();
+            }
+            
+            reset() {
+                this.text = "";
+                this.pattern = "";
+                this.currentStep = 0;
+                this.comparisons = 0;
+                this.textIndex = 0; // 主串的起始匹配位置 (i)
+                this.patternIndex = 0; // 模式串当前比较的位置 (j)
+                this.nextArray = [];
+                this.isRunning = false;
+                this.isComplete = false;
+                this.matchResult = null;
+                this.algorithmType = null;
+                this.logEntries = [];
+                this.maxLogEntries = 20;
+                this.hideNextArray(); // 重置时隐藏
+            }
+            
+            computeNextArray(pattern) {
+                if (!pattern || pattern.length === 0) return [];
+                
+                const next = new Array(pattern.length).fill(0);
+                let j = 0; // j 记录最长公共前后缀长度
+                
+                for (let i = 1; i < pattern.length; i++) {
+                    // 当失配时，根据 next[j-1] 回溯 j
+                    while (j > 0 && pattern[i] !== pattern[j]) {
+                        j = next[j - 1];
+                    }
+                    
+                    if (pattern[i] === pattern[j]) {
+                        j++;
+                    }
+                    
+                    next[i] = j;
+                }
+                
+                return next;
+            }
+            
+            runBruteForce(text, pattern) {
+                this.reset();
+                this.text = text;
+                this.pattern = pattern;
+                this.algorithmType = 'brute-force';
+                this.isRunning = true;
+                
+                this.log(`开始暴力匹配算法`);
+                this.updateVisualization();
+                
+                return { canStep: true, completed: false };
+            }
+            
+            runKMP(text, pattern) {
+                this.reset();
+                this.text = text;
+                this.pattern = pattern;
+                this.algorithmType = 'kmp';
+                this.isRunning = true;
+                this.nextArray = this.computeNextArray(pattern);
+                
+                this.log(`开始KMP算法`);
+                this.log(`Next数组: [${this.nextArray.join(', ')}]`);
+                
+                this.showNextArray(); // KMP 启动时显示 Next 数组
+                this.updateVisualization();
+                
+                return { canStep: true, completed: false };
+            }
+            
+            step() {
+                if (!this.isRunning || this.isComplete) {
+                    this.log("请先选择算法开始演示");
+                    return true; // 假装完成，停止自动执行
+                }
+                
+                this.currentStep++;
+                
+                if (this.algorithmType === 'brute-force') {
+                    return this.bruteForceStep();
+                } else if (this.algorithmType === 'kmp') {
+                    return this.kmpStep();
+                }
+                
+                return false;
+            }
+            
+            bruteForceStep() {
+                const n = this.text.length;
+                const m = this.pattern.length;
+                
+                // 检查是否超出主串范围 (i + j >= n)
+                // 在暴力匹配中，textIndex 代表当前比较的起始位置
+                if (this.textIndex > n - m) {
+                    this.isComplete = true;
+                    this.matchResult = { index: -1, comparisons: this.comparisons };
+                    this.showResult(false);
+                    return true;
+                }
+                
+                const currentTextPos = this.textIndex + this.patternIndex;
+                
+                // 检查边界（仅在最后一次尝试时判断）
+                if (currentTextPos >= n) {
+                    this.isComplete = true;
+                    this.matchResult = { index: -1, comparisons: this.comparisons };
+                    this.showResult(false);
+                    return true;
+                }
+                
+                // 比较当前字符
+                const textChar = this.text[currentTextPos];
+                const patternChar = this.pattern[this.patternIndex];
+                this.comparisons++;
+                
+                if (textChar === patternChar) {
+                    this.log(`步骤 ${this.currentStep}: 匹配成功 - T[${currentTextPos}]='${textChar}' == P[${this.patternIndex}]='${patternChar}'`);
+                    this.patternIndex++;
+                    
+                    // 检查是否完成整个模式串的匹配
+                    if (this.patternIndex === m) {
+                        this.isComplete = true;
+                        this.matchResult = { index: this.textIndex, comparisons: this.comparisons };
+                        this.showResult(true);
+                        return true;
+                    }
+                } else {
+                    this.log(`步骤 ${this.currentStep}: 匹配失败 - T[${currentTextPos}]='${textChar}' != P[${this.patternIndex}]='${patternChar}'`);
+                    this.log(`暴力匹配：主串指针回退，起始位置从 ${this.textIndex} 移动到 ${this.textIndex + 1}`);
+                    
+                    // 暴力匹配：移动主串指针到下一个位置，重置模式串指针
+                    this.textIndex++;
+                    this.patternIndex = 0;
+                }
+                
+                return false;
+            }
+            
+            kmpStep() {
+                const n = this.text.length;
+                const m = this.pattern.length;
+                
+                // 检查是否找到匹配
+                if (this.patternIndex === m) {
+                    this.isComplete = true;
+                    const matchIndex = this.textIndex - m;
+                    this.matchResult = { index: matchIndex, comparisons: this.comparisons };
+                    this.showResult(true);
+                    return true;
+                }
+                
+                // 检查是否已经完成所有字符的比较
+                if (this.textIndex >= n) {
+                    this.isComplete = true;
+                    this.matchResult = { index: -1, comparisons: this.comparisons };
+                    this.showResult(false);
+                    return true;
+                }
+                
+                // 比较当前字符 (T[this.textIndex] vs P[this.patternIndex])
+                const textChar = this.text[this.textIndex];
+                const patternChar = this.pattern[this.patternIndex];
+                this.comparisons++;
+                
+                if (textChar === patternChar) {
+                    this.log(`步骤 ${this.currentStep}: 匹配成功 - T[${this.textIndex}]='${textChar}' == P[${this.patternIndex}]='${patternChar}'`);
+                    this.textIndex++;
+                    this.patternIndex++;
+                } else {
+                    this.log(`步骤 ${this.currentStep}: 匹配失败 - T[${this.textIndex}]='${textChar}' != P[${this.patternIndex}]='${patternChar}'`);
+                    
+                    if (this.patternIndex > 0) {
+                        const nextVal = this.nextArray[this.patternIndex - 1];
+                        this.log(`KMP跳转：模式串指针 j 从 ${this.patternIndex} 根据 Next[${this.patternIndex-1}]=${nextVal} 跳转到 ${nextVal}。主串指针 i 不回退。`);
+                        this.patternIndex = nextVal;
+                    } else {
+                        this.log(`KMP跳转：j=0 且失配，主串指针 i 从 ${this.textIndex} 前进到 ${this.textIndex + 1}。`);
+                        this.textIndex++;
+                    }
+                }
+                
+                return false;
+            }
+            
+            // ... (log, showResult, updateLog 保持不变)
+            
+            showResult(success) {
+                const resultPanel = document.getElementById('result-panel');
+                
+                if (success) {
+                    resultPanel.textContent = `匹配成功！模式串在主串中的起始位置: ${this.matchResult.index} (总比较次数: ${this.matchResult.comparisons})`;
+                    resultPanel.className = 'result-panel';
+                    resultPanel.style.display = 'block';
+                    this.log(`匹配成功！起始位置: ${this.matchResult.index}, 总比较次数: ${this.matchResult.comparisons}`);
+                } else {
+                    resultPanel.textContent = `匹配失败，未找到模式串 (总比较次数: ${this.matchResult.comparisons})`;
+                    resultPanel.className = 'result-panel failure';
+                    resultPanel.style.display = 'block';
+                    this.log(`匹配失败，总比较次数: ${this.matchResult.comparisons}`);
+                }
+            }
+            
+            log(message) {
+                const timestamp = new Date().toLocaleTimeString();
+                const logEntry = `[${timestamp}] ${message}`;
+                
+                this.logEntries.unshift(logEntry);
+                if (this.logEntries.length > this.maxLogEntries) {
+                    this.logEntries.pop();
+                }
+                
+                this.updateLog();
+            }
+            
+            updateLog() {
+                const logContainer = document.getElementById('log-entries');
+                logContainer.innerHTML = '';
+                
+                if (this.logEntries.length === 0) {
+                    logContainer.innerHTML = '<div class="log-entry">点击上方按钮开始演示，日志将在此显示...</div>';
+                    return;
+                }
+                
+                this.logEntries.slice(0, 10).forEach(entry => { // 只显示最新的10条日志
+                    const div = document.createElement('div');
+                    div.className = 'log-entry';
+                    div.textContent = entry;
+                    logContainer.appendChild(div);
+                });
+            }
+            
+            updateVisualization() {
+                this.updateTextVisualization();
+                this.updatePatternVisualization();
+                this.updateUIStatus();
+                if (this.algorithmType === 'kmp') {
+                    this.updateNextVisualization();
+                }
+            }
+
+            // A. 新增 Next 数组可视化
+            updateNextVisualization() {
+                const patternCharsDiv = document.getElementById('next-pattern-chars');
+                const patternIndicesDiv = document.getElementById('next-pattern-indices');
+                const nextValuesDiv = document.getElementById('next-values');
+                
+                patternCharsDiv.innerHTML = '';
+                patternIndicesDiv.innerHTML = '';
+                nextValuesDiv.innerHTML = '';
+                
+                if (!this.pattern || this.nextArray.length === 0) return;
+
+                for (let i = 0; i < this.pattern.length; i++) {
+                    // 1. 模式串字符
+                    const charSpan = document.createElement('span');
+                    charSpan.className = 'char next-char';
+                    charSpan.textContent = this.pattern[i];
+                    patternCharsDiv.appendChild(charSpan);
+                    
+                    // 2. 模式串索引
+                    const indexSpan = document.createElement('div');
+                    indexSpan.className = 'index-label';
+                    indexSpan.textContent = i;
+                    patternIndicesDiv.appendChild(indexSpan);
+                    
+                    // 3. Next 值
+                    const nextSpan = document.createElement('span');
+                    nextSpan.className = 'char next-char';
+                    nextSpan.textContent = this.nextArray[i];
+                    // 突出显示当前失配位置的 Next 值
+                    if (this.algorithmType === 'kmp' && !this.isComplete && i === this.patternIndex - 1) {
+                         nextSpan.style.backgroundColor = '#f39c12';
+                         nextSpan.style.color = 'white';
+                    }
+                    nextValuesDiv.appendChild(nextSpan);
+                }
+            }
+            
+            showNextArray() {
+                document.getElementById('next-array-panel').style.display = 'block';
+            }
+
+            hideNextArray() {
+                 document.getElementById('next-array-panel').style.display = 'none';
+            }
+
+
+            // B. 优化主串指针
+            updateTextVisualization() {
+                const textChars = document.getElementById('text-chars');
+                const textIndices = document.getElementById('text-indices');
+                const textPointer = document.getElementById('text-pointer');
+                
+                textChars.innerHTML = '';
+                textIndices.innerHTML = '';
+                textPointer.innerHTML = '';
+                
+                if (!this.text) return;
+                
+                let currentComparisonPos = -1;
+                
+                if (this.algorithmType === 'brute-force') {
+                    currentComparisonPos = this.textIndex + this.patternIndex;
+                } else if (this.algorithmType === 'kmp') {
+                    currentComparisonPos = this.textIndex;
+                }
+                
+                for (let i = 0; i < this.text.length; i++) {
+                    const char = this.text[i];
+                    const charSpan = document.createElement('span');
+                    charSpan.className = 'char';
+                    charSpan.textContent = char;
+                    
+                    if (this.isComplete && this.matchResult && this.matchResult.index !== -1) {
+                         // 最终匹配成功的高亮
+                        if (i >= this.matchResult.index && i < this.matchResult.index + this.pattern.length) {
+                            charSpan.classList.add('match');
+                        }
+                    } else if (this.isRunning) {
+                        if (this.algorithmType === 'brute-force') {
+                            const relativePos = i - this.textIndex;
+                            // 已匹配部分
+                            if (i >= this.textIndex && relativePos < this.patternIndex) {
+                                charSpan.classList.add('match');
+                            } 
+                        } else if (this.algorithmType === 'kmp') {
+                            // 已匹配部分 (KMP)
+                            if (i < this.textIndex && i >= this.textIndex - this.patternIndex) {
+                                charSpan.classList.add('match');
+                            }
+                        }
+
+                        // 正在比较的字符 (优化后的指针位置)
+                        if (i === currentComparisonPos) {
+                            charSpan.classList.add('current');
+                        }
+                    }
+                    
+                    textChars.appendChild(charSpan);
+                    
+                    // 索引
+                    const indexSpan = document.createElement('div');
+                    indexSpan.className = 'index-label';
+                    indexSpan.textContent = i;
+                    textIndices.appendChild(indexSpan);
+                    
+                    // 指针
+                    const pointerSpan = document.createElement('div');
+                    pointerSpan.className = 'index-label';
+                    
+                    if (i === currentComparisonPos) {
+                        pointerSpan.innerHTML = '<span class="pointer">↑</span>';
+                    }
+                    textPointer.appendChild(pointerSpan);
+                }
+            }
+            
+            updatePatternVisualization() {
+                const patternChars = document.getElementById('pattern-chars');
+                const patternIndices = document.getElementById('pattern-indices');
+                const patternPointer = document.getElementById('pattern-pointer');
+                
+                patternChars.innerHTML = '';
+                patternIndices.innerHTML = '';
+                patternPointer.innerHTML = '';
+                
+                if (!this.pattern) return;
+                
+                for (let i = 0; i < this.pattern.length; i++) {
+                    const char = this.pattern[i];
+                    const charSpan = document.createElement('span');
+                    charSpan.className = 'char pattern';
+                    charSpan.textContent = char;
+                    
+                    // 标记已匹配和当前比较字符
+                    if (this.isRunning) {
+                        if (i < this.patternIndex) {
+                            charSpan.classList.add('match');
+                        } else if (i === this.patternIndex) {
+                            charSpan.classList.add('current');
+                        }
+                    }
+                    
+                    patternChars.appendChild(charSpan);
+                    
+                    // 索引
+                    const indexSpan = document.createElement('div');
+                    indexSpan.className = 'index-label';
+                    indexSpan.textContent = i;
+                    patternIndices.appendChild(indexSpan);
+                    
+                    // 指针
+                    const pointerSpan = document.createElement('div');
+                    pointerSpan.className = 'index-label';
+                    if (i === this.patternIndex) {
+                        pointerSpan.innerHTML = '<span class="pointer">↑</span>';
+                    }
+                    patternPointer.appendChild(pointerSpan);
+                }
+            }
+            
+            updateUIStatus() {
+                document.getElementById('status').textContent = this.isComplete ? '已完成' : (this.isRunning ? '运行中' : '准备就绪');
+                document.getElementById('comparison-count').textContent = this.comparisons;
+                document.getElementById('step-count').textContent = this.currentStep;
+                document.getElementById('algorithm-name').textContent = this.algorithmType === 'kmp' ? 'KMP算法' : (this.algorithmType === 'brute-force' ? '暴力匹配' : '-');
+                
+                document.getElementById('text-length').textContent = this.text.length;
+                document.getElementById('pattern-length').textContent = this.pattern.length;
+                document.getElementById('current-text-pos').textContent = this.textIndex;
+                document.getElementById('current-pattern-pos').textContent = this.patternIndex;
+                document.getElementById('match-status').textContent = this.isComplete ? 
+                    (this.matchResult && this.matchResult.index !== -1 ? '匹配成功' : '匹配失败') : 
+                    (this.isRunning ? '匹配中' : '未开始');
+                
+                // 更新步骤说明
+                this.updateStepExplanation();
+            }
+            
+            updateStepExplanation() {
+                const explanationDiv = document.getElementById('step-explanation');
+                let explanation = '';
+                
+                if (!this.isRunning) {
+                    explanation = '<p>请点击"暴力匹配"或"KMP算法"按钮开始演示。系统会展示字符串匹配的完整过程。</p>';
+                } else if (this.isComplete) {
+                    explanation = `<p>算法执行完成。${
+                        this.matchResult && this.matchResult.index !== -1 
+                            ? `匹配成功，模式串在主串中的起始位置为 ${this.matchResult.index}，总共进行了 ${this.matchResult.comparisons} 次比较。`
+                            : `匹配失败，未找到模式串，总共进行了 ${this.matchResult.comparisons} 次比较。`
+                    }</p>`;
+                } else {
+                    const currentTextPos = this.algorithmType === 'brute-force' ? (this.textIndex + this.patternIndex) : this.textIndex;
+
+                    if (this.algorithmType === 'brute-force') {
+                        explanation = `<p>步骤 ${this.currentStep}: 正在比较主串位置 ${currentTextPos} 和模式串位置 ${this.patternIndex}。暴力匹配算法逐一比较每个可能的位置。</p>`;
+                    } else if (this.algorithmType === 'kmp') {
+                        explanation = `<p>步骤 ${this.currentStep}: 正在比较主串位置 ${currentTextPos} 和模式串位置 ${this.patternIndex}。KMP算法利用 Next 数组在匹配失败时跳转，**主串指针 i 不回退**。</p>`;
+                    }
+                }
+                
+                explanationDiv.innerHTML = explanation;
+            }
+        }
+
+        // 主应用程序
+        document.addEventListener('DOMContentLoaded', function() {
+            // 创建算法实例
+            const algorithm = new KMPAlgorithm();
+            let autoInterval = null;
+            
+            // 获取DOM元素
+            const textInput = document.getElementById('text-input');
+            const patternInput = document.getElementById('pattern-input');
+            const bruteForceBtn = document.getElementById('brute-force-btn');
+            const kmpBtn = document.getElementById('kmp-btn');
+            const stepBtn = document.getElementById('step-btn');
+            const autoStepBtn = document.getElementById('auto-step-btn');
+            const resetBtn = document.getElementById('reset-btn');
+            const warningMessage = document.getElementById('warning-message');
+            
+            // 初始化显示
+            updateDisplay();
+            
+            // 事件监听
+            bruteForceBtn.addEventListener('click', function() {
+                startAlgorithm('brute-force');
+            });
+            
+            kmpBtn.addEventListener('click', function() {
+                startAlgorithm('kmp');
+            });
+            
+            stepBtn.addEventListener('click', function() {
+                if (!algorithm.isRunning) {
+                    showWarning("请先选择算法开始演示");
+                    return;
+                }
+                
+                const isComplete = algorithm.step();
+                updateDisplay();
+                
+                if (isComplete) {
+                    disableControls();
+                }
+            });
+            
+            autoStepBtn.addEventListener('click', function() {
+                if (!algorithm.isRunning) {
+                    showWarning("请先选择算法开始演示");
+                    return;
+                }
+                
+                if (autoInterval) {
+                    // 停止自动执行
+                    clearInterval(autoInterval);
+                    autoInterval = null;
+                    autoStepBtn.textContent = '自动执行';
+                } else {
+                    // 开始自动执行
+                    autoStepBtn.textContent = '停止执行';
+                    stepBtn.disabled = true; // 自动执行时禁用单步
+                    autoInterval = setInterval(() => {
+                        const isComplete = algorithm.step();
+                        updateDisplay();
+                        
+                        if (isComplete) {
+                            clearInterval(autoInterval);
+                            autoInterval = null;
+                            autoStepBtn.textContent = '自动执行';
+                            disableControls();
+                        }
+                    }, 800);
+                }
+            });
+            
+            resetBtn.addEventListener('click', function() {
+                if (autoInterval) {
+                    clearInterval(autoInterval);
+                    autoInterval = null;
+                    autoStepBtn.textContent = '自动执行';
+                }
+                
+                algorithm.reset();
+                enableControls();
+                updateDisplay();
+                hideWarning();
+                document.getElementById('result-panel').style.display = 'none';
+            });
+            
+            // 输入框变化时重置
+            textInput.addEventListener('input', handleInputReset);
+            patternInput.addEventListener('input', handleInputReset);
+
+            function handleInputReset() {
+                 if (algorithm.isRunning) {
+                    if (autoInterval) {
+                        clearInterval(autoInterval);
+                        autoInterval = null;
+                        autoStepBtn.textContent = '自动执行';
+                    }
+                    algorithm.reset();
+                    enableControls();
+                    updateDisplay();
+                    document.getElementById('result-panel').style.display = 'none';
+                }
+            }
+            
+            // 辅助函数
+            function startAlgorithm(type) {
+                if (algorithm.isRunning) {
+                    // 如果正在运行，先重置
+                    if (autoInterval) {
+                        clearInterval(autoInterval);
+                        autoInterval = null;
+                        autoStepBtn.textContent = '自动执行';
+                    }
+                    algorithm.reset();
+                    document.getElementById('result-panel').style.display = 'none';
+                }
+
+                const text = textInput.value.trim();
+                const pattern = patternInput.value.trim();
+                
+                if (!text) {
+                    showWarning("请输入主串");
+                    return;
+                }
+                
+                if (!pattern) {
+                    showWarning("请输入模式串");
+                    return;
+                }
+                
+                if (pattern.length > text.length) {
+                    showWarning("模式串长度不能大于主串长度");
+                    return;
+                }
+                
+                hideWarning();
+                
+                if (type === 'brute-force') {
+                    algorithm.runBruteForce(text, pattern);
+                } else if (type === 'kmp') {
+                    algorithm.runKMP(text, pattern);
+                }
+                
+                enableControls(true);
+                updateDisplay();
+            }
+            
+            function updateDisplay() {
+                algorithm.updateVisualization();
+            }
+
+            function enableControls(isStart = false) {
+                 stepBtn.disabled = isStart ? false : true;
+                 autoStepBtn.disabled = isStart ? false : true;
+                 bruteForceBtn.disabled = false;
+                 kmpBtn.disabled = false;
+            }
+
+            function disableControls() {
+                 stepBtn.disabled = true;
+                 autoStepBtn.disabled = true;
+                 bruteForceBtn.disabled = true;
+                 kmpBtn.disabled = true;
+            }
+            
+            function showWarning(message) {
+                warningMessage.textContent = message;
+                warningMessage.style.display = 'block';
+            }
+            
+            function hideWarning() {
+                warningMessage.style.display = 'none';
+            }
+            
+            // 初始显示示例文本的可视化
+            algorithm.text = textInput.value;
+            algorithm.pattern = patternInput.value;
+            updateDisplay();
+        });
+    </script>
+</body>
+</html>
