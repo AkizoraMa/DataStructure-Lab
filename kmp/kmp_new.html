@@ -1,0 +1,1428 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>KMP算法演示系统 | Cyberpunk</title>
+  <style>
+    :root{
+      --bg0:#0b0f14;
+      --bg1:#0f1623;
+      --panel: rgba(10, 16, 24, 0.72);
+      --panel2: rgba(8, 12, 18, 0.82);
+      --border: rgba(0, 255, 65, 0.25);
+      --grid: rgba(0, 255, 65, 0.10);
+
+      --fg: rgba(220, 255, 235, 0.92);
+      --muted: rgba(200, 255, 225, 0.60);
+
+      --neon-g:#00ff41;
+      --neon-c:#00e5ff;
+      --neon-r:#ff2b6a;
+      --neon-y:#ffd400;
+
+      --shadow-g: 0 0 14px rgba(0,255,65,.22);
+      --shadow-c: 0 0 14px rgba(0,229,255,.20);
+      --shadow-r: 0 0 14px rgba(255,43,106,.22);
+
+      --cell: 36px;
+      --gap: 6px;
+      --radius: 10px;
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; }
+    body{
+      margin:0;
+      color:var(--fg);
+      background:
+        radial-gradient(1200px 600px at 15% 10%, rgba(0,229,255,.10), transparent 60%),
+        radial-gradient(900px 500px at 80% 20%, rgba(0,255,65,.10), transparent 65%),
+        linear-gradient(135deg, var(--bg0), var(--bg1));
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      letter-spacing: .2px;
+      padding: 18px;
+    }
+
+    a{ color: var(--neon-c); }
+
+    .app{
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .topbar{
+      padding: 18px 18px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: linear-gradient(180deg, rgba(0,255,65,.06), rgba(0,229,255,.03));
+      box-shadow: var(--shadow-g);
+      position: relative;
+      overflow:hidden;
+    }
+    .topbar::before{
+      content:"";
+      position:absolute; inset:0;
+      background:
+        linear-gradient(transparent 0 92%, rgba(0,255,65,.10) 92% 100%),
+        repeating-linear-gradient(90deg, rgba(0,255,65,.08) 0 1px, transparent 1px 14px);
+      opacity: .18;
+      pointer-events:none;
+    }
+
+    .title{
+      margin:0;
+      font-size: 22px;
+      line-height: 1.2;
+      text-shadow: 0 0 18px rgba(0,255,65,.12);
+      position: relative;
+    }
+    .subtitle{
+      margin:8px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      position: relative;
+    }
+    .subtitle .tag{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding: 2px 8px;
+      border: 1px solid rgba(0,229,255,.25);
+      border-radius: 999px;
+      background: rgba(0,229,255,.06);
+      box-shadow: var(--shadow-c);
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns: 360px 1fr 380px;
+      gap: 14px;
+      margin-top: 14px;
+      align-items: start;
+    }
+    @media (max-width: 1180px){
+      .grid{ grid-template-columns: 1fr; }
+    }
+
+    .panel{
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--panel);
+      box-shadow: var(--shadow-g);
+      backdrop-filter: blur(10px);
+      overflow:hidden;
+      position: relative;
+    }
+    .panel::after{
+      content:"";
+      position:absolute; inset:0;
+      background:
+        repeating-linear-gradient(0deg, transparent 0 18px, rgba(0,255,65,.03) 18px 19px);
+      opacity:.25;
+      pointer-events:none;
+    }
+
+    .panel-header{
+      position: relative;
+      padding: 12px 14px;
+      border-bottom: 1px solid rgba(0,255,65,.18);
+      background: rgba(0,0,0,.18);
+      display:flex;
+      align-items:center;
+      justify-content: space-between;
+      gap: 12px;
+      z-index: 1;
+    }
+    .panel-title{
+      margin:0;
+      font-size: 13px;
+      font-weight: 700;
+      color: rgba(220,255,235,.92);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .panel-body{
+      padding: 14px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hint{
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+    .hint kbd{
+      padding: 1px 6px;
+      border: 1px solid rgba(0,229,255,.25);
+      border-radius: 6px;
+      background: rgba(0,229,255,.06);
+      color: rgba(220,255,235,.90);
+    }
+
+    label{
+      display:block;
+      font-size: 12px;
+      color: var(--muted);
+      margin: 10px 0 6px;
+    }
+    input[type="text"]{
+      width:100%;
+      padding: 10px 10px;
+      border: 1px solid rgba(0,255,65,.25);
+      border-radius: 10px;
+      background: rgba(0,0,0,.30);
+      color: var(--fg);
+      outline:none;
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,.15);
+    }
+    input[type="text"]:focus{
+      border-color: rgba(0,229,255,.45);
+      box-shadow: var(--shadow-c);
+    }
+
+    .row{
+      display:flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    .btn{
+      appearance: none;
+      border: 1px solid rgba(0,255,65,.38);
+      background: transparent;
+      color: rgba(220,255,235,.92);
+      padding: 10px 12px;
+      border-radius: 10px;
+      cursor:pointer;
+      font-weight: 700;
+      letter-spacing: .4px;
+      transition: transform .12s ease, box-shadow .12s ease, background .12s ease, border-color .12s ease;
+      user-select:none;
+      min-width: 106px;
+    }
+    .btn:hover{
+      border-color: rgba(0,229,255,.55);
+      background: rgba(0,229,255,.06);
+      box-shadow: var(--shadow-c);
+      transform: translateY(-1px);
+    }
+    .btn:active{ transform: translateY(0); }
+    .btn:disabled{
+      cursor: not-allowed;
+      opacity: .48;
+      transform:none;
+      box-shadow:none;
+    }
+    .btn.is-primary{
+      border-color: rgba(0,229,255,.55);
+      background: rgba(0,229,255,.08);
+      box-shadow: var(--shadow-c);
+    }
+    .btn.is-danger{
+      border-color: rgba(255,43,106,.55);
+      color: rgba(255,230,240,.92);
+    }
+    .btn.is-danger:hover{
+      background: rgba(255,43,106,.10);
+      box-shadow: var(--shadow-r);
+    }
+    .btn.is-active{
+      border-color: rgba(0,255,65,.70);
+      background: rgba(0,255,65,.08);
+      box-shadow: var(--shadow-g);
+    }
+
+    .warning{
+      display:none;
+      margin-top: 10px;
+      padding: 10px 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,43,106,.55);
+      background: rgba(255,43,106,.10);
+      color: rgba(255,230,240,.92);
+      box-shadow: var(--shadow-r);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .warning.show{ display:block; }
+
+    .statusbar{
+      display:flex;
+      flex-wrap: wrap;
+      gap: 10px 12px;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(0,255,65,.18);
+      background: rgba(0,0,0,.25);
+    }
+    .stat{
+      display:flex;
+      gap: 8px;
+      align-items: center;
+      font-size: 12px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .badge{
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(0,229,255,.30);
+      background: rgba(0,229,255,.06);
+      color: rgba(220,255,235,.92);
+    }
+    .badge.g{ border-color: rgba(0,255,65,.35); background: rgba(0,255,65,.07); box-shadow: var(--shadow-g); }
+    .badge.r{ border-color: rgba(255,43,106,.45); background: rgba(255,43,106,.08); box-shadow: var(--shadow-r); }
+    .badge.c{ border-color: rgba(0,229,255,.40); background: rgba(0,229,255,.07); box-shadow: var(--shadow-c); }
+    .badge.y{ border-color: rgba(255,212,0,.45); background: rgba(255,212,0,.07); }
+
+    .viz{
+      margin-top: 12px;
+      border: 1px solid rgba(0,255,65,.18);
+      border-radius: 12px;
+      background: rgba(0,0,0,.22);
+      overflow: hidden;
+    }
+    .viz-header{
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(0,255,65,.14);
+      display:flex;
+      align-items:center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .viz-header h4{
+      margin:0;
+      font-size: 12px;
+      color: rgba(220,255,235,.90);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .viz-header .mini{
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .track-wrap{
+      padding: 12px;
+      overflow:auto;
+    }
+
+    .track{
+      display:grid;
+      grid-template-columns: repeat(var(--cols), var(--cell));
+      gap: var(--gap);
+      align-items: center;
+      width: max-content;
+      min-width: 100%;
+    }
+    .track.indices{
+      margin-top: 8px;
+      opacity: .85;
+    }
+    .track.pointers{
+      margin-top: 6px;
+      opacity: .95;
+    }
+
+    .cell{
+      width: var(--cell);
+      height: var(--cell);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      border-radius: 6px; /* 直角/微圆角 */
+      border: 1px solid rgba(0,255,65,.25);
+      background: rgba(0,0,0,.28);
+      color: rgba(220,255,235,.92);
+      text-shadow: 0 0 10px rgba(0,255,65,.08);
+      box-shadow: 0 0 0 rgba(0,0,0,0);
+      transition: background .12s ease, border-color .12s ease, box-shadow .12s ease, transform .12s ease;
+      user-select:none;
+    }
+    .cell.ghost{
+      border-color: transparent;
+      background: transparent;
+    }
+    .cell.pattern{
+      border-color: rgba(0,229,255,.30);
+      background: rgba(0,229,255,.06);
+      box-shadow: 0 0 12px rgba(0,229,255,.10);
+    }
+
+    /* 已匹配部分（绿色） */
+    .cell.is-matched{
+      border-color: rgba(0,255,65,.75);
+      background: rgba(0,255,65,.12);
+      box-shadow: 0 0 14px rgba(0,255,65,.20);
+    }
+
+    /* 当前正在比较（高亮色：青色） */
+    .cell.is-active{
+      border-color: rgba(0,229,255,.90);
+      background: rgba(0,229,255,.14);
+      box-shadow: 0 0 16px rgba(0,229,255,.22);
+      transform: translateY(-1px);
+    }
+
+    /* 失配（红色） */
+    .cell.is-mismatch{
+      border-color: rgba(255,43,106,.95);
+      background: rgba(255,43,106,.16);
+      box-shadow: 0 0 18px rgba(255,43,106,.24);
+      animation: shake .18s linear 2;
+    }
+    @keyframes shake{
+      0%{ transform: translateX(0); }
+      25%{ transform: translateX(-1px); }
+      50%{ transform: translateX(1px); }
+      75%{ transform: translateX(-1px); }
+      100%{ transform: translateX(0); }
+    }
+
+    .idx{
+      width: var(--cell);
+      height: 18px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      color: rgba(200,255,225,.65);
+      font-size: 11px;
+    }
+
+    .ptr{
+      width: var(--cell);
+      height: 16px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size: 14px;
+      color: var(--neon-r);
+      text-shadow: 0 0 14px rgba(255,43,106,.22);
+    }
+    .ptr.dim{ color: transparent; text-shadow:none; }
+
+    .eventline{
+      margin-top: 12px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(0,255,65,.18);
+      background: rgba(0,0,0,.25);
+      color: rgba(220,255,235,.88);
+      font-size: 12px;
+      line-height: 1.55;
+      min-height: 44px;
+      position: relative;
+    }
+    .eventline .em{
+      color: var(--neon-c);
+      text-shadow: 0 0 14px rgba(0,229,255,.20);
+      font-weight: 800;
+    }
+    .eventline .jump{
+      color: rgba(255,230,240,.92);
+      font-weight: 800;
+    }
+
+    .jump-flash{
+      animation: jumpFlash .55s ease;
+    }
+    @keyframes jumpFlash{
+      0%{ box-shadow: 0 0 0 rgba(0,0,0,0); }
+      40%{ box-shadow: 0 0 22px rgba(255,212,0,.22); }
+      100%{ box-shadow: 0 0 0 rgba(0,0,0,0); }
+    }
+
+    .result{
+      margin-top: 12px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(0,255,65,.22);
+      background: rgba(0,255,65,.06);
+      color: rgba(220,255,235,.92);
+      box-shadow: var(--shadow-g);
+      display:none;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    .result.show{ display:block; }
+    .result.fail{
+      border-color: rgba(255,43,106,.35);
+      background: rgba(255,43,106,.08);
+      box-shadow: var(--shadow-r);
+    }
+
+    /* Next 面板 */
+    .next-grid{
+      border: 1px solid rgba(0,255,65,.18);
+      border-radius: 12px;
+      background: rgba(0,0,0,.22);
+      overflow:hidden;
+    }
+    .next-wrap{
+      padding: 12px;
+      overflow:auto;
+    }
+    .next-track{
+      display:grid;
+      grid-template-columns: repeat(var(--cols), var(--cell));
+      gap: var(--gap);
+      width: max-content;
+      min-width: 100%;
+      align-items:center;
+    }
+    .next-cell{
+      width: var(--cell);
+      height: var(--cell);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      border-radius: 6px;
+      border: 1px solid rgba(0,229,255,.30);
+      background: rgba(0,229,255,.06);
+      color: rgba(220,255,235,.92);
+      box-shadow: 0 0 12px rgba(0,229,255,.10);
+      user-select:none;
+    }
+    .next-cell.value{
+      border-color: rgba(0,255,65,.30);
+      background: rgba(0,255,65,.06);
+      box-shadow: 0 0 12px rgba(0,255,65,.10);
+    }
+    .next-cell.used{
+      border-color: rgba(255,212,0,.70);
+      background: rgba(255,212,0,.10);
+      box-shadow: 0 0 18px rgba(255,212,0,.18);
+    }
+    .next-cell.currentj{
+      border-color: rgba(0,229,255,.85);
+      background: rgba(0,229,255,.12);
+      box-shadow: 0 0 18px rgba(0,229,255,.18);
+    }
+
+    /* Terminal Log */
+    .terminal{
+      border: 1px solid rgba(0,255,65,.18);
+      border-radius: 12px;
+      background: rgba(0,0,0,.55);
+      overflow:hidden;
+      position: relative;
+    }
+    .terminal-body{
+      height: 280px;
+      overflow:auto;
+      padding: 10px 12px 18px;
+      font-size: 12px;
+      line-height: 1.55;
+      color: rgba(0,255,65,.85);
+    }
+    .logline{
+      white-space: pre-wrap;
+      word-break: break-word;
+      margin: 0 0 6px;
+      border-left: 2px solid rgba(0,255,65,.10);
+      padding-left: 8px;
+    }
+    .logline .t{ color: rgba(0,229,255,.75); }
+    .logline.jump{
+      color: rgba(255,212,0,.95);
+      border-left-color: rgba(255,212,0,.30);
+      text-shadow: 0 0 14px rgba(255,212,0,.14);
+    }
+    .logline.bad{
+      color: rgba(255,43,106,.92);
+      border-left-color: rgba(255,43,106,.30);
+      text-shadow: 0 0 14px rgba(255,43,106,.14);
+    }
+    .terminal::after{
+      content:"";
+      position:absolute;
+      left: 12px;
+      bottom: 10px;
+      width: 10px;
+      height: 14px;
+      background: rgba(0,255,65,.85);
+      box-shadow: 0 0 14px rgba(0,255,65,.18);
+      animation: blink 1s steps(1,end) infinite;
+      border-radius: 2px;
+    }
+    @keyframes blink{ 50%{ opacity: 0; } }
+
+    .speed{
+      display:flex;
+      align-items:center;
+      gap: 10px;
+      margin-top: 12px;
+      padding: 10px 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(0,255,65,.18);
+      background: rgba(0,0,0,.18);
+    }
+    input[type="range"]{
+      width: 100%;
+      accent-color: var(--neon-g);
+    }
+    .speed .val{
+      min-width: 74px;
+      text-align:right;
+      color: rgba(220,255,235,.90);
+      font-size: 12px;
+    }
+
+    @media (prefers-reduced-motion: reduce){
+      *{ animation: none !important; transition: none !important; }
+      .terminal::after{ animation:none !important; opacity:1; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <header class="topbar">
+      <h1 class="title">KMP 算法演示系统 <span style="color:var(--neon-c)">/</span> </h1>
+      <p class="subtitle">
+        <span class="tag">Dark Mode · Monospace · Next数组固定展示 · 指针=当前比较字符</span>
+      </p>
+    </header>
+
+    <main class="grid">
+      <!-- Controls -->
+      <section class="panel">
+        <div class="panel-header">
+          <h2 class="panel-title">控制台</h2>
+          <span class="badge c" id="algoBadge">ALGO: -</span>
+        </div>
+
+        <div class="panel-body">
+          <div class="warning" id="warning"></div>
+
+          <label for="textInput">主串 Text</label>
+          <input id="textInput" type="text" value="ABABDABACDABABCABAB" spellcheck="false" />
+
+          <label for="patternInput">模式串 Pattern</label>
+          <input id="patternInput" type="text" value="ABABCABAB" spellcheck="false" />
+
+          <div class="row">
+            <button class="btn" id="btnBrute">暴力匹配</button>
+            <button class="btn" id="btnKmp">KMP 算法</button>
+            <button class="btn is-primary" id="btnStep" disabled>下一步</button>
+            <button class="btn is-primary" id="btnAuto" disabled>自动执行</button>
+            <button class="btn is-danger" id="btnReset">重置</button>
+          </div>
+
+          <div class="speed">
+            <span class="badge g">SPEED</span>
+            <input id="speedRange" type="range" min="120" max="1400" step="20" value="520" />
+            <span class="val" id="speedVal">520ms</span>
+          </div>
+
+          <div class="hint">
+            - 绿色：已匹配部分<br/>
+            - 青色高亮：当前正在比较（指针↑所指位置）<br/>
+            - 霓虹红：失配（上一轮比较的失败位置）<br/>
+            - KMP 失配且 <kbd>j&gt;0</kbd> 时会触发 <span style="color:var(--neon-y)">Next 跳转</span> 视觉反馈
+          </div>
+        </div>
+      </section>
+
+      <!-- Stage -->
+      <section class="panel">
+        <div class="panel-header">
+          <h2 class="panel-title">可视化舞台</h2>
+          <span class="badge g" id="stateBadge">READY</span>
+        </div>
+
+        <div class="panel-body">
+          <div class="statusbar" aria-live="polite">
+            <div class="stat">状态 <span class="badge" id="statStatus">准备就绪</span></div>
+            <div class="stat">比较 <span class="badge r" id="statCmp">0</span></div>
+            <div class="stat">步骤 <span class="badge c" id="statStep">0</span></div>
+            <div class="stat">i <span class="badge y" id="statI">-</span></div>
+            <div class="stat">j <span class="badge y" id="statJ">-</span></div>
+          </div>
+
+          <div class="viz" id="vizText">
+            <div class="viz-header">
+              <h4>Text</h4>
+              <div class="mini" id="lenText">len=0</div>
+            </div>
+            <div class="track-wrap">
+              <div class="track" id="textChars" style="--cols: 1;"></div>
+              <div class="track indices" id="textIdx" style="--cols: 1;"></div>
+              <div class="track pointers" id="textPtr" style="--cols: 1;"></div>
+            </div>
+          </div>
+
+          <div class="viz" id="vizPattern">
+            <div class="viz-header">
+              <h4>Pattern（对齐到 Text）</h4>
+              <div class="mini" id="lenPattern">len=0</div>
+            </div>
+            <div class="track-wrap">
+              <div class="track" id="patChars" style="--cols: 1;"></div>
+              <div class="track indices" id="patIdx" style="--cols: 1;"></div>
+              <div class="track pointers" id="patPtr" style="--cols: 1;"></div>
+            </div>
+          </div>
+
+          <div class="eventline" id="eventLine">
+            等待开始：点击「暴力匹配」或「KMP 算法」。
+          </div>
+
+          <div class="result" id="resultBox"></div>
+        </div>
+      </section>
+
+      <!-- Side -->
+      <aside class="panel">
+        <div class="panel-header">
+          <h2 class="panel-title">Next 数组 & 日志</h2>
+          <span class="badge c">HUD</span>
+        </div>
+
+        <div class="panel-body">
+          <!-- Next (always visible) -->
+          <div class="next-grid" id="nextPanel">
+            <div class="viz-header" style="border-bottom: 1px solid rgba(0,255,65,.14);">
+              <h4>Next 数组（部分匹配表）</h4>
+              <div class="mini" id="nextHint">next[i] = prefix-function</div>
+            </div>
+            <div class="next-wrap">
+              <div class="next-track" id="nextChars" style="--cols: 1;"></div>
+              <div class="next-track" id="nextIdx" style="--cols: 1; margin-top:8px;"></div>
+              <div class="next-track" id="nextVals" style="--cols: 1; margin-top:6px;"></div>
+            </div>
+          </div>
+
+          <div class="hint" style="margin-top:10px;">
+            Next 值含义：当比较到 <kbd>P[j]</kbd> 失配且 <kbd>j&gt;0</kbd>，令 <kbd>j = next[j-1]</kbd>，主串指针 <kbd>i</kbd> 不回退。
+          </div>
+
+          <!-- Log -->
+          <div class="terminal" style="margin-top:12px;">
+            <div class="viz-header" style="border-bottom: 1px solid rgba(0,255,65,.14);">
+              <h4>Terminal Log</h4>
+              <div class="mini">可滚动</div>
+            </div>
+            <div class="terminal-body" id="logBody"></div>
+          </div>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <script>
+    (() => {
+      // =========================
+      // 1) KMP Next 数组（前缀函数）
+      // =========================
+      function computeNext(pattern) {
+        const m = pattern.length;
+        const next = new Array(m).fill(0);
+        let j = 0;
+
+        for (let i = 1; i < m; i++) {
+          while (j > 0 && pattern[i] !== pattern[j]) j = next[j - 1];
+          if (pattern[i] === pattern[j]) j++;
+          next[i] = j;
+        }
+        return next;
+      }
+
+      // =========================
+      // 2) 状态与 DOM
+      // =========================
+      const dom = {
+        textInput: document.getElementById('textInput'),
+        patternInput: document.getElementById('patternInput'),
+        warning: document.getElementById('warning'),
+
+        btnBrute: document.getElementById('btnBrute'),
+        btnKmp: document.getElementById('btnKmp'),
+        btnStep: document.getElementById('btnStep'),
+        btnAuto: document.getElementById('btnAuto'),
+        btnReset: document.getElementById('btnReset'),
+
+        speedRange: document.getElementById('speedRange'),
+        speedVal: document.getElementById('speedVal'),
+
+        algoBadge: document.getElementById('algoBadge'),
+        stateBadge: document.getElementById('stateBadge'),
+        statStatus: document.getElementById('statStatus'),
+        statCmp: document.getElementById('statCmp'),
+        statStep: document.getElementById('statStep'),
+        statI: document.getElementById('statI'),
+        statJ: document.getElementById('statJ'),
+
+        lenText: document.getElementById('lenText'),
+        lenPattern: document.getElementById('lenPattern'),
+
+        textChars: document.getElementById('textChars'),
+        textIdx: document.getElementById('textIdx'),
+        textPtr: document.getElementById('textPtr'),
+
+        patChars: document.getElementById('patChars'),
+        patIdx: document.getElementById('patIdx'),
+        patPtr: document.getElementById('patPtr'),
+
+        eventLine: document.getElementById('eventLine'),
+        resultBox: document.getElementById('resultBox'),
+
+        nextPanel: document.getElementById('nextPanel'),
+        nextChars: document.getElementById('nextChars'),
+        nextIdx: document.getElementById('nextIdx'),
+        nextVals: document.getElementById('nextVals'),
+
+        logBody: document.getElementById('logBody'),
+      };
+
+      const initialState = () => ({
+        algo: null,            // 'brute' | 'kmp'
+        running: false,
+        complete: false,
+
+        text: '',
+        pattern: '',
+        next: [],
+
+        comparisons: 0,
+        steps: 0,
+
+        // 暴力：i=起始位置，j=模式指针
+        brute: { i: 0, j: 0 },
+
+        // KMP：i=主串指针（当前比较位置），j=模式指针
+        kmp: { i: 0, j: 0 },
+
+        // 上一轮比较的“失配”高亮（用于区分红色失配）
+        lastMismatch: null, // { tPos, pPos }
+        // KMP Next 跳转反馈（视觉 + Next 高亮）
+        lastJump: null,     // { fromJ, toJ, usedIndex } usedIndex = fromJ-1
+        // 匹配结果
+        matchIndex: null,   // number | -1 | null
+      });
+
+      let state = initialState();
+      let autoTimer = null;
+
+      // =========================
+      // 3) Log（终端风）
+      // =========================
+      function nowTime() {
+        const d = new Date();
+        return d.toLocaleTimeString();
+      }
+
+      function addLog(message, type = 'info') {
+        const div = document.createElement('div');
+        div.className = 'logline' + (type === 'jump' ? ' jump' : type === 'bad' ? ' bad' : '');
+        div.innerHTML = `<span class="t">[${nowTime()}]</span> ${escapeHtml(message)}`;
+        dom.logBody.appendChild(div);
+        dom.logBody.scrollTop = dom.logBody.scrollHeight;
+      }
+
+      function clearLog() {
+        dom.logBody.innerHTML = '';
+      }
+
+      function escapeHtml(s) {
+        return String(s)
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#39;');
+      }
+
+      // =========================
+      // 4) 校验 & Reset
+      // =========================
+      function showWarning(msg) {
+        dom.warning.textContent = msg;
+        dom.warning.classList.add('show');
+      }
+
+      function hideWarning() {
+        dom.warning.classList.remove('show');
+        dom.warning.textContent = '';
+      }
+
+      function stopAuto() {
+        if (autoTimer) {
+          clearInterval(autoTimer);
+          autoTimer = null;
+        }
+        dom.btnAuto.textContent = '自动执行';
+      }
+
+      function hardReset(keepInputs = true) {
+        stopAuto();
+        state = initialState();
+
+        if (keepInputs) {
+          state.text = dom.textInput.value;
+          state.pattern = dom.patternInput.value;
+          state.next = state.pattern ? computeNext(state.pattern) : [];
+        }
+
+        dom.btnStep.disabled = true;
+        dom.btnAuto.disabled = true;
+
+        dom.btnBrute.classList.remove('is-active');
+        dom.btnKmp.classList.remove('is-active');
+
+        hideWarning();
+        clearLog();
+
+        dom.resultBox.classList.remove('show', 'fail');
+        dom.resultBox.textContent = '';
+
+        renderAll();
+      }
+
+      function validateInputsForStart() {
+        const text = dom.textInput.value;
+        const pattern = dom.patternInput.value;
+
+        if (!text) return { ok: false, msg: '请输入主串 Text。' };
+        if (!pattern) return { ok: false, msg: '请输入模式串 Pattern。' };
+        if (pattern.length > text.length) return { ok: false, msg: '模式串长度不能大于主串长度。' };
+        return { ok: true, text, pattern };
+      }
+
+      // =========================
+      // 5) 启动算法
+      // =========================
+      function startAlgo(algo) {
+        stopAuto();
+        const v = validateInputsForStart();
+        if (!v.ok) {
+          showWarning(v.msg);
+          return;
+        }
+        hideWarning();
+
+        state = initialState();
+        state.algo = algo;
+        state.running = true;
+        state.text = v.text;
+        state.pattern = v.pattern;
+        state.next = computeNext(v.pattern);
+
+        dom.btnStep.disabled = false;
+        dom.btnAuto.disabled = false;
+
+        dom.btnBrute.classList.toggle('is-active', algo === 'brute');
+        dom.btnKmp.classList.toggle('is-active', algo === 'kmp');
+
+        addLog(`开始演示：${algo === 'kmp' ? 'KMP' : '暴力匹配'}。`);
+
+        if (algo === 'kmp') addLog(`Next = [${state.next.join(', ')}]`, 'jump');
+
+        renderAll();
+      }
+
+      // =========================
+      // 6) 单步推进（核心逻辑）
+      // =========================
+      function finish(success, index) {
+        state.complete = true;
+        state.running = false;
+        state.matchIndex = success ? index : -1;
+
+        dom.btnStep.disabled = true;
+        dom.btnAuto.disabled = true;
+        stopAuto();
+
+        if (success) {
+          dom.resultBox.classList.remove('fail');
+          dom.resultBox.classList.add('show');
+          dom.resultBox.textContent = `匹配成功：Pattern 在 Text 中的起始位置 = ${index}（总比较次数 = ${state.comparisons}）。`;
+          addLog(`匹配成功：起始位置 = ${index}，比较次数 = ${state.comparisons}。`);
+        } else {
+          dom.resultBox.classList.add('show', 'fail');
+          dom.resultBox.textContent = `匹配失败：未找到 Pattern（总比较次数 = ${state.comparisons}）。`;
+          addLog(`匹配失败：比较次数 = ${state.comparisons}。`, 'bad');
+        }
+      }
+
+      // 计算“当前正在比较”的位置（用于指针 ↑ 和青色高亮）
+      function getActiveCompare() {
+        if (!state.running || state.complete) return null;
+
+        if (state.algo === 'brute') {
+          const { i, j } = state.brute;
+          const tPos = i + j;     // 暴力：指向 text[i+j]
+          const pPos = j;
+          return { tPos, pPos, pStart: i };
+        }
+
+        if (state.algo === 'kmp') {
+          const { i, j } = state.kmp;
+          const tPos = i;         // KMP：指向 text[i]
+          const pPos = j;
+          const pStart = i - j;   // Pattern 对齐起点
+          return { tPos, pPos, pStart };
+        }
+
+        return null;
+      }
+
+      function stepOnce() {
+        if (!state.running || state.complete) return;
+
+        // 每一步开始：清除上一轮“失配红色”，保留 Next 跳转信息用于展示
+        state.lastMismatch = null;
+        state.lastJump = null;
+
+        state.steps++;
+
+        const n = state.text.length;
+        const m = state.pattern.length;
+
+        if (state.algo === 'brute') {
+          const s = state.brute;
+
+          // i 超界：无解
+          if (s.i > n - m) {
+            finish(false, -1);
+            renderAll();
+            return;
+          }
+
+          const tPos = s.i + s.j;
+          const pPos = s.j;
+
+          state.comparisons++;
+          const tc = state.text[tPos];
+          const pc = state.pattern[pPos];
+
+          if (tc === pc) {
+            addLog(`Step ${state.steps}: OK  T[${tPos}]='${tc}' == P[${pPos}]='${pc}'`);
+            s.j++;
+            if (s.j === m) {
+              finish(true, s.i);
+              renderAll();
+              return;
+            }
+          } else {
+            addLog(`Step ${state.steps}: BAD T[${tPos}]='${tc}' != P[${pPos}]='${pc}'`, 'bad');
+            addLog(`暴力回退：起始 i 从 ${s.i} -> ${s.i + 1}，j -> 0`);
+            state.lastMismatch = { tPos, pPos };
+
+            s.i++;
+            s.j = 0;
+          }
+
+          renderAll();
+          return;
+        }
+
+        if (state.algo === 'kmp') {
+          const s = state.kmp;
+
+          // 找到
+          if (s.j === m) {
+            finish(true, s.i - m);
+            renderAll();
+            return;
+          }
+
+          // 主串结束
+          if (s.i >= n) {
+            finish(false, -1);
+            renderAll();
+            return;
+          }
+
+          const tPos = s.i;
+          const pPos = s.j;
+
+          state.comparisons++;
+          const tc = state.text[tPos];
+          const pc = state.pattern[pPos];
+
+          if (tc === pc) {
+            addLog(`Step ${state.steps}: OK  T[${tPos}]='${tc}' == P[${pPos}]='${pc}'`);
+            s.i++;
+            s.j++;
+
+            if (s.j === m) {
+              finish(true, s.i - m);
+              renderAll();
+              return;
+            }
+
+            renderAll();
+            return;
+          }
+
+          // 失配
+          addLog(`Step ${state.steps}: BAD T[${tPos}]='${tc}' != P[${pPos}]='${pc}'`, 'bad');
+          state.lastMismatch = { tPos, pPos };
+
+          if (s.j > 0) {
+            const fromJ = s.j;
+            const usedIndex = s.j - 1;
+            const toJ = state.next[usedIndex];
+
+            addLog(`KMP 跳转：j 从 ${fromJ} -> next[${usedIndex}]=${toJ}（i=${s.i} 不回退）`, 'jump');
+
+            s.j = toJ;
+            state.lastJump = { fromJ, toJ, usedIndex };
+
+            // 触发明显视觉反馈（Next 跳转）
+            dom.vizPattern.classList.remove('jump-flash');
+            dom.nextPanel.classList.remove('jump-flash');
+            void dom.vizPattern.offsetWidth; // restart animation
+            dom.vizPattern.classList.add('jump-flash');
+            dom.nextPanel.classList.add('jump-flash');
+          } else {
+            addLog(`KMP 前进：j=0 且失配，i 从 ${s.i} -> ${s.i + 1}`);
+            s.i++;
+          }
+
+          renderAll();
+        }
+      }
+
+      // =========================
+      // 7) 渲染（高亮/指针/对齐）
+      // =========================
+      function setTrackCols(track, cols) {
+        track.style.setProperty('--cols', Math.max(cols, 1));
+      }
+
+      function renderText() {
+        const text = state.text || dom.textInput.value || '';
+        const n = text.length;
+
+        setTrackCols(dom.textChars, n);
+        setTrackCols(dom.textIdx, n);
+        setTrackCols(dom.textPtr, n);
+
+        dom.textChars.innerHTML = '';
+        dom.textIdx.innerHTML = '';
+        dom.textPtr.innerHTML = '';
+
+        const active = getActiveCompare();
+
+        // 已匹配部分（绿色）范围
+        let matched = null; // {start,endExclusive}
+        if (state.running && !state.complete) {
+          if (state.algo === 'brute') {
+            const { i, j } = state.brute;
+            matched = { start: i, end: i + j };
+          } else if (state.algo === 'kmp') {
+            const { i, j } = state.kmp;
+            matched = { start: i - j, end: i };
+          }
+        }
+
+        // 结束后：匹配成功高亮最终区间
+        if (state.complete && state.matchIndex != null && state.matchIndex >= 0) {
+          matched = { start: state.matchIndex, end: state.matchIndex + (state.pattern?.length || 0) };
+        }
+
+        for (let i = 0; i < n; i++) {
+          const c = document.createElement('div');
+          c.className = 'cell';
+          c.textContent = text[i];
+
+          const inMatched = matched && i >= matched.start && i < matched.end;
+          if (inMatched) c.classList.add('is-matched');
+
+          if (active && i === active.tPos) c.classList.add('is-active');
+
+          if (state.lastMismatch && i === state.lastMismatch.tPos) c.classList.add('is-mismatch');
+
+          dom.textChars.appendChild(c);
+
+          const idx = document.createElement('div');
+          idx.className = 'idx';
+          idx.textContent = String(i);
+          dom.textIdx.appendChild(idx);
+
+          const p = document.createElement('div');
+          p.className = 'ptr' + (active && i === active.tPos ? '' : ' dim');
+          p.textContent = active && i === active.tPos ? '↑' : '↑';
+          dom.textPtr.appendChild(p);
+        }
+
+        dom.lenText.textContent = `len=${n}`;
+      }
+
+      function renderPatternAlignedToText() {
+        const text = state.text || dom.textInput.value || '';
+        const pattern = state.pattern || dom.patternInput.value || '';
+        const n = text.length;
+        const m = pattern.length;
+
+        setTrackCols(dom.patChars, n);
+        setTrackCols(dom.patIdx, n);
+        setTrackCols(dom.patPtr, n);
+
+        dom.patChars.innerHTML = '';
+        dom.patIdx.innerHTML = '';
+        dom.patPtr.innerHTML = '';
+
+        const active = getActiveCompare();
+
+        // Pattern 对齐起点
+        let pStart = 0;
+        if (active) pStart = Math.max(0, active.pStart);
+
+        // 已匹配部分（绿色）范围（pattern 侧：0..j）
+        let matchedJ = 0;
+        if (state.running && !state.complete) {
+          matchedJ = state.algo === 'brute' ? state.brute.j : state.kmp.j;
+        }
+        if (state.complete && state.matchIndex != null && state.matchIndex >= 0) matchedJ = m;
+
+        for (let col = 0; col < n; col++) {
+          const pIdx = col - pStart; // 对应 pattern 的下标（可能为负/越界）
+
+          // chars
+          const cell = document.createElement('div');
+          if (pIdx >= 0 && pIdx < m) {
+            cell.className = 'cell pattern';
+            cell.textContent = pattern[pIdx];
+
+            if (pIdx < matchedJ) cell.classList.add('is-matched');
+
+            if (active && pIdx === active.pPos && col === active.tPos) cell.classList.add('is-active');
+
+            if (state.lastMismatch && pIdx === state.lastMismatch.pPos && col === state.lastMismatch.tPos) {
+              cell.classList.add('is-mismatch');
+            }
+          } else {
+            cell.className = 'cell ghost';
+            cell.textContent = '';
+          }
+          dom.patChars.appendChild(cell);
+
+          // indices
+          const idx = document.createElement('div');
+          idx.className = 'idx';
+          idx.textContent = (pIdx >= 0 && pIdx < m) ? String(pIdx) : '';
+          dom.patIdx.appendChild(idx);
+
+          // pointers：指向当前比较的 pattern 字符（对齐后）
+          const ptr = document.createElement('div');
+          const isPtr = active && col === active.tPos; // pattern 指针与 text 当前比较位置同列（对齐展示）
+          ptr.className = 'ptr' + (isPtr ? '' : ' dim');
+          ptr.textContent = isPtr ? '↑' : '↑';
+          dom.patPtr.appendChild(ptr);
+        }
+
+        dom.lenPattern.textContent = `len=${m}`;
+      }
+
+      function renderNext() {
+        const pattern = state.pattern || dom.patternInput.value || '';
+        const next = pattern ? (state.next.length === pattern.length ? state.next : computeNext(pattern)) : [];
+        const m = pattern.length;
+
+        setTrackCols(dom.nextChars, m);
+        setTrackCols(dom.nextIdx, m);
+        setTrackCols(dom.nextVals, m);
+
+        dom.nextChars.innerHTML = '';
+        dom.nextIdx.innerHTML = '';
+        dom.nextVals.innerHTML = '';
+
+        if (!pattern) {
+          const msg = document.createElement('div');
+          msg.className = 'hint';
+          msg.textContent = '请输入 Pattern，Next 数组将在此固定展示。';
+          dom.nextChars.appendChild(msg);
+          return;
+        }
+
+        // 当前 j（用于对照）
+        const curJ = (state.running && !state.complete)
+          ? (state.algo === 'brute' ? state.brute.j : state.kmp.j)
+          : null;
+
+        for (let i = 0; i < m; i++) {
+          const c = document.createElement('div');
+          c.className = 'next-cell';
+          c.textContent = pattern[i];
+          if (curJ != null && i === curJ) c.classList.add('currentj');
+          dom.nextChars.appendChild(c);
+
+          const idx = document.createElement('div');
+          idx.className = 'idx';
+          idx.textContent = String(i);
+          dom.nextIdx.appendChild(idx);
+
+          const v = document.createElement('div');
+          v.className = 'next-cell value';
+          v.textContent = String(next[i]);
+
+          // KMP Next 跳转时：突出 usedIndex（即 j-1 的 next）
+          if (state.lastJump && i === state.lastJump.usedIndex) v.classList.add('used');
+
+          dom.nextVals.appendChild(v);
+        }
+      }
+
+      function renderStatusAndExplain() {
+        const algoName = state.algo === 'kmp' ? 'KMP' : state.algo === 'brute' ? 'BRUTE' : '-';
+        dom.algoBadge.textContent = `ALGO: ${algoName}`;
+
+        const statusText = state.complete
+          ? '已完成'
+          : state.running
+            ? (autoTimer ? '自动执行中' : '运行中')
+            : '准备就绪';
+
+        dom.statStatus.textContent = statusText;
+        dom.statCmp.textContent = String(state.comparisons);
+        dom.statStep.textContent = String(state.steps);
+
+        let iVal = '-';
+        let jVal = '-';
+        if (state.running || state.complete) {
+          if (state.algo === 'brute') {
+            iVal = String(state.brute.i);
+            jVal = String(state.brute.j);
+          } else if (state.algo === 'kmp') {
+            iVal = String(state.kmp.i);
+            jVal = String(state.kmp.j);
+          }
+        }
+        dom.statI.textContent = iVal;
+        dom.statJ.textContent = jVal;
+
+        dom.stateBadge.textContent = state.complete ? 'DONE' : state.running ? 'RUN' : 'READY';
+        dom.stateBadge.className = 'badge ' + (state.complete ? (state.matchIndex >= 0 ? 'g' : 'r') : state.running ? 'c' : '');
+
+        // 说明行：强调指针逻辑 + KMP jump
+        if (!state.running && !state.complete) {
+          dom.eventLine.innerHTML = `等待开始：点击「暴力匹配」或「KMP 算法」。`;
+          return;
+        }
+
+        if (state.complete) {
+          dom.eventLine.innerHTML = state.matchIndex >= 0
+            ? `完成：<span class="em">匹配成功</span>，起始位置 = <span class="em">${state.matchIndex}</span>，比较次数 = <span class="em">${state.comparisons}</span>。`
+            : `完成：<span class="jump">匹配失败</span>，比较次数 = <span class="em">${state.comparisons}</span>。`;
+          return;
+        }
+
+        const active = getActiveCompare();
+        if (!active) {
+          dom.eventLine.textContent = '运行中...';
+          return;
+        }
+
+        const infoBase = `当前比较：T[${active.tPos}] vs P[${active.pPos}]（指针↑始终指向“当前正在比较的字符”）`;
+
+        if (state.algo === 'brute') {
+          dom.eventLine.innerHTML = `${infoBase} · 暴力模式：指向 <span class="em">text[i+j]</span>。`;
+          return;
+        }
+
+        // KMP
+        if (state.lastJump) {
+          dom.eventLine.innerHTML =
+            `${infoBase} · <span class="jump">Next 跳转触发</span>：j ${state.lastJump.fromJ} → ${state.lastJump.toJ}（使用 next[${state.lastJump.usedIndex}]）`;
+        } else {
+          dom.eventLine.innerHTML =
+            `${infoBase} · KMP 模式：指向 <span class="em">text[i]</span>，失配时 i 不回退。`;
+        }
+      }
+
+      function renderAll() {
+        // 同步输入到 state（未启动也要显示 Next）
+        if (!state.running && !state.complete) {
+          state.text = dom.textInput.value;
+          state.pattern = dom.patternInput.value;
+          state.next = state.pattern ? computeNext(state.pattern) : [];
+        }
+
+        renderText();
+        renderPatternAlignedToText();
+        renderNext();
+        renderStatusAndExplain();
+      }
+
+      // =========================
+      // 8) Auto
+      // =========================
+      function startAuto() {
+        if (!state.running || state.complete) return;
+
+        stopAuto();
+        dom.btnAuto.textContent = '停止执行';
+
+        const tick = () => {
+          if (!state.running || state.complete) {
+            stopAuto();
+            return;
+          }
+          stepOnce();
+        };
+
+        autoTimer = setInterval(tick, Number(dom.speedRange.value));
+      }
+
+      function refreshAutoIntervalIfNeeded() {
+        if (!autoTimer) return;
+        startAuto();
+      }
+
+      // =========================
+      // 9) 事件绑定
+      // =========================
+      dom.btnBrute.addEventListener('click', () => startAlgo('brute'));
+      dom.btnKmp.addEventListener('click', () => startAlgo('kmp'));
+
+      dom.btnStep.addEventListener('click', () => {
+        if (!state.running || state.complete) return;
+        stepOnce();
+      });
+
+      dom.btnAuto.addEventListener('click', () => {
+        if (!state.running || state.complete) return;
+        if (autoTimer) stopAuto();
+        else startAuto();
+        renderStatusAndExplain();
+      });
+
+      dom.btnReset.addEventListener('click', () => hardReset(true));
+
+      // 输入变化：如果正在运行则强制重置；否则实时更新 Next 与可视化
+      function onInputChanged() {
+        if (state.running && !state.complete) {
+          hardReset(true);
+          addLog('输入已修改：已重置到 READY。');
+          return;
+        }
+        renderAll();
+      }
+
+      dom.textInput.addEventListener('input', onInputChanged);
+      dom.patternInput.addEventListener('input', onInputChanged);
+
+      dom.speedRange.addEventListener('input', () => {
+        dom.speedVal.textContent = `${dom.speedRange.value}ms`;
+        refreshAutoIntervalIfNeeded();
+      });
+
+      // =========================
+      // 10) 初始化
+      // =========================
+      dom.speedVal.textContent = `${dom.speedRange.value}ms`;
+      hardReset(true);
+      addLog('系统就绪：Next 数组固定可见。');
+    })();
+  </script>
+</body>
+</html>
